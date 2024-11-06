@@ -1,0 +1,12 @@
+# Datasets
+/data*
+
+# Editor & IDE
+/.vscode/
+
+# NVIDIA Omniverse Kit
+/kit-sdk-*
+/ngc-cli/
+
+# Python
+/**/__pycache__/
