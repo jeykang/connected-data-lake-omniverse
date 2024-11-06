@@ -5,8 +5,11 @@
 /.vscode/
 
 # NVIDIA Omniverse Kit
+/app
 /kit-sdk-*
 /ngc-cli/
+/nv_shadercache/
+/shadercache/
 
 # Python
 /**/__pycache__/

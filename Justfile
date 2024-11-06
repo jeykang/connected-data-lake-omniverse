@@ -35,6 +35,8 @@ run TYPE="editor.base":
         && NVIDIA_OMNIVERSE_KIT_FILE="$(find "${NVIDIA_OMNIVERSE_KIT_HOME}" -mindepth 1 -maxdepth 1 -name '*.zip' -type f)" \
         && busybox unzip "${NVIDIA_OMNIVERSE_KIT_FILE}" -d "${NVIDIA_OMNIVERSE_KIT_HOME}" -o \
         && rm "${NVIDIA_OMNIVERSE_KIT_FILE}" \
+        && rm -f './app' \
+        && ln -sf "x${NVIDIA_OMNIVERSE_KIT_HOME}" './app' \
     ; fi && \
     exec "${NVIDIA_OMNIVERSE_KIT_HOME}/omni.app.{{ TYPE }}.sh" \
         --enable 'nuscenes.viz' \
