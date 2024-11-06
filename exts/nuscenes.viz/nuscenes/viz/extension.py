@@ -112,6 +112,14 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         self._ui_timestamp_slider.model.set_max(timestamps.stop)
         self._ui_timestamp_slider.model.set_value(self._data_loader.timestamp)
 
+        # Reload the screen
+        self._reload_screen()
+
+    def _reload_screen(self) -> None:
+        # Display the image and pointcloud at the selected timestamp
+        self._ui_cam_front.source_url = self._data_loader.cam_front
+        self._display_pointcloud(self._data_loader.lidar_top)
+
     def _on_scene_changed(self, model, *_args) -> None:
         # Propagate value to the DataLoader
         index = model.get_item_value_model().as_int
@@ -127,10 +135,8 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         if not self._data_loader.seek(timestamp):
             return  # nothing changed
 
-        # Display the image and pointcloud at the selected index
-        self._ui_cam_front.source_url = self._data_loader.cam_front
-        self._display_pointcloud(self._data_loader.lidar_top)
-        # self.image_widget.source_url = self._data_loader.lidar_top
+        # Reload the screen
+        self._reload_screen()
 
     def _display_pointcloud(self, url: str) -> None:
         # Load the USD file into the stage

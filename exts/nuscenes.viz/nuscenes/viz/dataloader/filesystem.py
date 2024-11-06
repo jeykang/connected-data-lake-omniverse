@@ -62,13 +62,13 @@ class FileSystemDataLoader(BaseDataLoader):
     @property
     @override
     def timestamp(self) -> int:
-        '''Return the current timestamp as milliseconds'''
+        '''Returns the current timestamp as milliseconds'''
         return self._current_timestamp
 
     @property
     @override
     def timestamps(self) -> range:
-        '''Return the range of available timestamps as milliseconds'''
+        '''Returns the range of available timestamps as milliseconds'''
         return range(
             self._lidar_top_timestamps[0],
             self._lidar_top_timestamps[-1],
@@ -101,8 +101,9 @@ class FileSystemDataLoader(BaseDataLoader):
 
     @override
     def _checkout_category(self, category: Category) -> bool:
+        warning(f'Reloading nuScenes category: {category}')
+
         # Load scenes
-        warning(f'Reloading nuScenes scenes: {category}')
         self._category_dir = os.path.join(self._path, self.category)
         self._lidar_top_scenes = _list_scenes(
             base_dir=self._category_dir,
@@ -119,9 +120,9 @@ class FileSystemDataLoader(BaseDataLoader):
         if self._current_scene == self.scenes[scene_index]:
             return False
         self._current_scene = self.scenes[scene_index]
+        warning(f'Reloading nuScenes scene: {self._current_scene}')
 
         # Load timestamps
-        warning(f'Reloading nuScenes timestamps: {self._current_scene}')
         self._cam_front_base, \
             self._cam_front_timestamps, \
             self._cam_front_filenames = _list_timestamps(

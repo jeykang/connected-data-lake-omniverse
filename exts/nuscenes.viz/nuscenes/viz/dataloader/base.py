@@ -40,13 +40,13 @@ class BaseDataLoader(metaclass=ABCMeta):
     @property
     @abstractmethod
     def timestamp(self) -> int:
-        '''Return the current timestamp as milliseconds'''
+        '''Returns the current timestamp as milliseconds'''
         raise NotImplementedError()
 
     @property
     @abstractmethod
     def timestamps(self) -> range:
-        '''Return the range of available timestamps as milliseconds'''
+        '''Returns the range of available timestamps as milliseconds'''
         raise NotImplementedError()
 
     @property

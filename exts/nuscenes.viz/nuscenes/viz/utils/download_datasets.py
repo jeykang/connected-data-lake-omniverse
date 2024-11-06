@@ -91,7 +91,7 @@ def _download_and_extract(
     if url in meta_downloaded:
         return  # Skip re-downloading
 
-    info(f'* Downloading dataset: {url!r}')
+    info(f'Downloading dataset: {url!r}')
     with requests.get(url, stream=True) as response:
         response.raise_for_status()
         with tarfile.open(fileobj=response.raw, mode='r|gz') as tar:
@@ -119,7 +119,7 @@ def load_or_download_and_extract(
     '''
 
     path = os.path.realpath(path)
-    info(f'* Downloading NuScenes dataset to {path}')
+    info(f'Downloading NuScenes dataset to {path}')
     os.makedirs(path, exist_ok=True)
 
     # Download the file
@@ -132,7 +132,7 @@ def load_or_download_and_extract(
             version='1.0',
             dest=path,
         )
-    debug('* Loaded NuScenes dataset')
+    debug('Loaded NuScenes dataset')
     return path
 
 
@@ -142,5 +142,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     # Specify the directory you want to start the conversion from
-    root_directory = os.path.join(__file__, '../../../../../data/nuscenes')
+    root_directory = os.path.join(__file__, '../../../../../../data/nuscenes')
     load_or_download_and_extract(root_directory)
