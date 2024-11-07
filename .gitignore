@@ -1,6 +1,10 @@
 # Datasets
 /data*
 
+# Development Environment
+/cache/
+**/.env
+
 # Editor & IDE
 /.vscode/
 

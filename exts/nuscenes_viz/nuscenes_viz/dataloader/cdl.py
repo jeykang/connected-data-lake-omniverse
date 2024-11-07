@@ -1,30 +1,32 @@
 '''FileSystem nuScenes Dataset Loader Module'''
 
-import os.path
+import os
 
+from cdlake import Cdl, CdlFS  # pylint: disable=import-error
 from typing_extensions import override
 
 from .base import BaseDataLoader, Category
-from ..utils.download_datasets import load_or_download_and_extract
 from ..utils.timestamp_seek import seek_by
 
-__all__ = ['FileSystemDataLoader']
+__all__ = ['CdlDataLoader']
 
 
-class FileSystemDataLoader(BaseDataLoader):
-    '''FileSystem nuScenes Dataset Loader'''
+class CdlDataLoader(BaseDataLoader):
+    '''Connected Data Lake nuScenes Dataset Loader'''
 
     def __init__(
         self,
+        cache_dir: str = './cache/omniverse',
         category: Category = 'samples',
-        path: str = './data/nuscenes',
-        download_if_not_exists: bool = False,
+        url: str = './data/nuscenes',
     ) -> None:
         super().__init__(
             category=category,
         )
-        self._download_if_not_exists = download_if_not_exists
-        self._path = os.path.realpath(path)
+        self._cache_dir = os.path.realpath(cache_dir)
+        self._cdl = Cdl()
+        self._fs = self._cdl.open(url)
+        self._url = url
 
         # Prefetch scenes
         self._category_dir: str
@@ -79,7 +81,10 @@ class FileSystemDataLoader(BaseDataLoader):
             timestamps=self._cam_front_timestamps,
             values=self._cam_front_filenames,
         )
-        return f'file://{self._cam_front_base}/{filename}'
+        return self._load(
+            parent=self._cam_front_base,
+            filename=filename,
+        )
 
     @override
     def lookup_lidar_top(self, timestamp: str) -> str:
@@ -90,23 +95,17 @@ class FileSystemDataLoader(BaseDataLoader):
             timestamps=self._lidar_top_timestamps,
             values=self._lidar_top_filenames,
         )
-        return f'file://{self._lidar_top_base}/{filename}'
-
-    @override
-    def _checkout_dataset(self) -> None:
-        # Download the dataset if not exists
-        if self._download_if_not_exists:
-            self._path = load_or_download_and_extract(self._path)
-        if not os.path.exists(self._path):
-            raise FileNotFoundError(
-                f'No such nuScenes dataset on: {self._path!r}'
-            )
+        return self._load(
+            parent=self._lidar_top_base,
+            filename=filename,
+        )
 
     @override
     def _checkout_category(self, category: Category) -> None:
         # Load scenes
-        self._category_dir = os.path.join(self._path, category)
+        self._category_dir = f'/{category}'
         self._lidar_top_scenes = _list_scenes(
+            fs=self._fs,
             base_dir=self._category_dir,
             kind='LIDAR_TOP',
             ext='.usd',
@@ -118,6 +117,7 @@ class FileSystemDataLoader(BaseDataLoader):
         self._cam_front_base, \
             self._cam_front_timestamps, \
             self._cam_front_filenames = _list_timestamps(
+                fs=self._fs,
                 base_dir=self._category_dir,
                 kind='CAM_FRONT',
                 scene=scene,
@@ -126,6 +126,7 @@ class FileSystemDataLoader(BaseDataLoader):
         self._lidar_top_base, \
             self._lidar_top_timestamps, \
             self._lidar_top_filenames = _list_timestamps(
+                fs=self._fs,
                 base_dir=self._category_dir,
                 kind='LIDAR_TOP',
                 scene=scene,
@@ -138,9 +139,35 @@ class FileSystemDataLoader(BaseDataLoader):
         self._cam_front_path = self.lookup_cam_front(timestamp)
         self._lidar_top_path = self.lookup_lidar_top(timestamp)
 
+    def _load(self, parent: str, filename: str) -> str:
+        # Create a directory
+        path = os.path.join(self._cache_dir, parent[1:], filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        if not os.path.exists(path):
+            # Load data
+            df = self._fs.sql(f'''
+                SELECT
+                    data
+                FROM
+                    rootfs
+                WHERE
+                    name == '{filename}' AND parent == '{parent}'
+                LIMIT 1
+            ''')
+            data = df['data'].to_pylist().pop()
+
+            # Store the data
+            with open(path, 'wb') as f:
+                f.write(data)
+                del data
+
+        # Return the stored path
+        return f'file://{path}'
+
     @override
     def __repr__(self) -> str:
-        return self._path
+        return self._url
 
     @override
     def __del__(self) -> None:
@@ -148,19 +175,27 @@ class FileSystemDataLoader(BaseDataLoader):
 
 
 def _list_scenes(
+    fs: CdlFS,
     base_dir: str,
     kind: str,
     ext: str,
 ) -> list[str]:
-    path = os.path.join(base_dir, kind)
-    return sorted(set(
-        filename.split('__')[0]
-        for filename in os.listdir(path)
-        if filename.startswith('n') and filename.endswith(ext)
-    ))
+    df = fs.sql(f'''
+        SELECT DISTINCT
+            SUBSTR(name, 1, INSTR(name, '__{kind}__') - 1) AS scene
+        FROM
+            rootfs
+        WHERE
+            name LIKE 'n%{ext}'
+                AND parent == '{base_dir}/{kind}'
+        ORDER BY
+            scene ASC
+    ''')
+    return df['scene'].to_pylist()
 
 
 def _list_timestamps(
+    fs: CdlFS,
     base_dir: str,
     kind: str,
     scene: str,
@@ -168,11 +203,18 @@ def _list_timestamps(
 ) -> tuple[str, list[int], list[str]]:
     assert ext.startswith('.')
     path = os.path.join(base_dir, kind)
-    filenames = sorted(
-        filename
-        for filename in os.listdir(path)
-        if filename.startswith(scene) and filename.endswith(ext)
-    )
+    df = fs.sql(f'''
+        SELECT DISTINCT
+            name
+        FROM
+            rootfs
+        WHERE
+            name LIKE '{scene}%{ext}'
+                AND parent == '{path}'
+        ORDER BY
+            name ASC
+    ''')
+    filenames = df['name'].to_pylist()
     timestamps = [
         int(filename.split(f'__{kind}__')[1][:-len(ext)])
         for filename in filenames

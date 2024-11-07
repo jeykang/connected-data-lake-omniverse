@@ -4,7 +4,7 @@
 from logging import info, warning
 
 from typing_extensions import final, override
-from pxr import Sdf  # pylint: disable=import-error
+from pxr import Sdf
 
 import omni.ext  # pylint: disable=import-error
 import omni.kit.commands  # pylint: disable=import-error
@@ -18,7 +18,7 @@ try:
 except ImportError as e:
     raise e
 
-from .dataloader import FileSystemDataLoader  # noqa: E501, pylint: disable=no-name-in-module
+from .dataloader import BaseDataLoader, load_dataset
 
 __all__ = [
     'RGBLiDARVisualizerExtension',
@@ -35,7 +35,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
     _window: ui.Window
 
     # States
-    _data_loader: FileSystemDataLoader
+    _data_loader: BaseDataLoader
 
     @final
     @override
@@ -44,7 +44,10 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         info('[RGBLiDARVisualizer] Extension started')
 
         # Download nuScenes dataset
-        self._data_loader = FileSystemDataLoader(category='samples')
+        self._data_loader = load_dataset(
+            url='s3a://dataset-b',
+            category='samples',
+        )
         self._data_loader.checkout_dataset()
 
         # Define window
@@ -147,6 +150,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
             return
 
         # Remove existing pointcloud prim if any
+        # pylint: disable=no-member
         pointcloud_prim_path = Sdf.Path('/World/LiDARPointCloud')
         if pointcloud_prim_path and stage.GetPrimAtPath(pointcloud_prim_path):
             # Remove the existing prim
@@ -161,5 +165,6 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
             assetPath=url,
             primPath='/Root/PointCloud',
         )
+
         # Focus the camera on the point cloud
         # self.focus_on_prim(pointcloud_prim_path)

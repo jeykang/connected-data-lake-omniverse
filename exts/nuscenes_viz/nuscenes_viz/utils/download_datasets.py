@@ -8,10 +8,10 @@ from multiprocessing import cpu_count
 import os
 import tarfile
 
-from nuscenes.utils.data_classes import LidarPointCloud  # noqa: E501, pylint: disable=import-error, no-name-in-module
-import open3d as o3d  # pylint: disable=import-error
-from pxr import Usd, UsdGeom, Gf  # pylint: disable=import-error
-import requests  # pylint: disable=import-error
+from nuscenes.utils.data_classes import LidarPointCloud
+import open3d as o3d
+from pxr import Usd, UsdGeom, Gf
+import requests
 
 __all__ = ['load_or_download_and_extract']
 
@@ -34,20 +34,24 @@ def _convert_pcd_to_usd(
     path: str,
 ):
     # Create a new USD stage
-    stage = Usd.Stage.CreateNew(path)
+    stage = Usd.Stage.CreateNew(path)  # pylint: disable=no-member
 
     # Define a root Xform in the USD stage to store point cloud
-    root = UsdGeom.Xform.Define(stage, '/Root')  # noqa: E501, F841, pylint: disable=unused-variable
+    # pylint: disable=no-member, unused-variable
+    root = UsdGeom.Xform.Define(stage, '/Root')  # noqa: F841
 
     # Create a PointBased geometry at "/Root/PointCloud" in USD
-    points_prim = UsdGeom.Points.Define(stage, '/Root/PointCloud')
+    # pylint: disable=no-member
+    points_prim = UsdGeom.Points.Define(stage, '/Root/PointCloud', )
 
     # Convert Open3D point cloud data to USD-compatible format
+    # pylint: disable=no-member
     points = [Gf.Vec3f(*p) for p in pcd.points]
     points_prim.GetPointsAttr().Set(points)
 
     # Optionally add color data if available
     if pcd.has_colors():
+        # pylint: disable=no-member
         colors = [Gf.Vec3f(*c) for c in pcd.colors]
         points_prim.GetDisplayColorAttr().Set(colors)
 
@@ -92,6 +96,7 @@ def _download_and_extract(
         return  # Skip re-downloading
 
     info(f'Downloading dataset: {url!r}')
+    # pylint: disable=missing-timeout
     with requests.get(url, stream=True) as response:
         response.raise_for_status()
         with tarfile.open(fileobj=response.raw, mode='r|gz') as tar:

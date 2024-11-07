@@ -86,11 +86,11 @@ class BaseDataLoader(metaclass=ABCMeta):
         # Checkout to the selected category
         self.checkout_category(self.category)
         self._is_loaded = True
+        warning(f'Reloaded nuScenes dataset: {self!r}')
         return True
 
-    @abstractmethod
     def _checkout_dataset(self) -> None:
-        raise NotImplementedError()
+        pass
 
     @final
     def checkout_category(self, category: Category) -> bool:
