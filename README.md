@@ -4,6 +4,7 @@
 
 ### Requirements
 
+- bash
 - busybox
 - curl
 - findutils
@@ -15,6 +16,7 @@
 ```bash
 # Install the dependencies
 sudo apt-get update && sudo apt-get install -y \
+  bash \
   busybox \
   curl \
   findutils \
@@ -25,7 +27,22 @@ sudo apt-get update && sudo apt-get install -y \
 rustup default stable
 ```
 
+#### Windows 11 or Above
+
+```bash
+# Install the dependencies
+winget install -e --id Git.Git  # git (bash, curl, findutils)
+winget install -e --id frippery.busybox-w32  # busybox
+winget install -e --id Casey.Just  # just
+winget install -e --id Rustlang.Rustup  # rustup
+
+# Install the latest stable cargo & rustc (>=1.82)
+rustup default stable
+```
+
 ### One-shot Command Line
+
+On your bash shell, type below:
 
 ```bash
 just run editor.base
