@@ -1,9 +1,8 @@
 '''FileSystem nuScenes Dataset Loader Module'''
 
 import bisect
-from logging import info, warning
 import os.path
-from typing import Iterable, TypeVar
+from typing import TypeVar
 
 from typing_extensions import override
 
@@ -24,20 +23,20 @@ class FileSystemDataLoader(BaseDataLoader):
         path: str = './data/nuscenes',
         download_if_not_exists: bool = False,
     ) -> None:
-        super().__init__(category)
+        super().__init__(
+            category=category,
+        )
         self._download_if_not_exists = download_if_not_exists
         self._path = os.path.realpath(path)
 
         # Prefetch scenes
         self._category_dir: str
-        self._current_scene: str
         self._lidar_top_scenes: list[str]
 
         # Prefetch timestamps
         self._cam_front_base: str
         self._cam_front_timestamps: list[int]
         self._cam_front_filenames: list[str]
-        self._current_timestamp: int
         self._lidar_top_base: str
         self._lidar_top_timestamps: list[int]
         self._lidar_top_filenames: list[str]
@@ -45,25 +44,13 @@ class FileSystemDataLoader(BaseDataLoader):
         # Fetch now
         self._cam_front_path: str
         self._lidar_top_path: str
-        self._checkout_dataset()
+        self.checkout_dataset()
 
     @property
     @override
-    def scene(self) -> str:
-        '''Returns the current scene'''
-        return self._current_scene
-
-    @property
-    @override
-    def scenes(self) -> Iterable[str]:
+    def scenes(self) -> list[str]:
         '''Returns the all available scenes'''
         return self._lidar_top_scenes
-
-    @property
-    @override
-    def timestamp(self) -> int:
-        '''Returns the current timestamp as milliseconds'''
-        return self._current_timestamp
 
     @property
     @override
@@ -86,9 +73,31 @@ class FileSystemDataLoader(BaseDataLoader):
         '''Returns the top lidar USD file path as URL'''
         return self._lidar_top_path
 
+    @override
+    def lookup_cam_front(self, timestamp: str) -> str:
+        '''Returns a front camera image file path
+        within the specific timestamp as URL'''
+        filename = _seek_by(
+            timestamp=timestamp,
+            timestamps=self._cam_front_timestamps,
+            values=self._cam_front_filenames,
+        )
+        return f'file://{self._category_dir}/CAM_FRONT/{filename}'
+
+    @override
+    def lookup_lidar_top(self, timestamp: str) -> str:
+        '''Returns a the top lidar USD file path
+        within the specific timestamp as URL'''
+        filename = _seek_by(
+            timestamp=timestamp,
+            timestamps=self._lidar_top_timestamps,
+            values=self._lidar_top_filenames,
+        )
+        return f'file://{self._category_dir}/LIDAR_TOP/{filename}'
+
+    @override
     def _checkout_dataset(self) -> None:
         # Download the dataset if not exists
-        warning(f'Reloading nuScenes dataset: {self._path}')
         if self._download_if_not_exists:
             self._path = load_or_download_and_extract(self._path)
         if not os.path.exists(self._path):
@@ -96,39 +105,24 @@ class FileSystemDataLoader(BaseDataLoader):
                 f'No such nuScenes dataset on: {self._path!r}'
             )
 
-        # Checkout to the selected category
-        self._checkout_category(self.category)
-
     @override
-    def _checkout_category(self, category: Category) -> bool:
-        warning(f'Reloading nuScenes category: {category}')
-
+    def _checkout_category(self, category: Category) -> None:
         # Load scenes
-        self._category_dir = os.path.join(self._path, self.category)
+        self._category_dir = os.path.join(self._path, category)
         self._lidar_top_scenes = _list_scenes(
             base_dir=self._category_dir,
             kind='LIDAR_TOP',
         )
 
-        # Seek to the first scene
-        self._current_scene = ''
-        return self.checkout_scene(0)
-
     @override
-    def checkout_scene(self, scene_index: int) -> bool:
-        '''Checkout the scene with the given index'''
-        if self._current_scene == self.scenes[scene_index]:
-            return False
-        self._current_scene = self.scenes[scene_index]
-        warning(f'Reloading nuScenes scene: {self._current_scene}')
-
+    def _checkout_scene(self, scene: str) -> None:
         # Load timestamps
         self._cam_front_base, \
             self._cam_front_timestamps, \
             self._cam_front_filenames = _list_timestamps(
                 base_dir=self._category_dir,
                 kind='CAM_FRONT',
-                scene=self._current_scene,
+                scene=scene,
                 ext='.jpg',
             )
         self._lidar_top_base, \
@@ -136,48 +130,23 @@ class FileSystemDataLoader(BaseDataLoader):
             self._lidar_top_filenames = _list_timestamps(
                 base_dir=self._category_dir,
                 kind='LIDAR_TOP',
-                scene=self._current_scene,
+                scene=scene,
                 ext='.usd',
             )
 
-        # Seek to the first timestamp
-        self._current_timestamp = -1
-        return self.seek_to_start()
+    @override
+    def _seek(self, timestamp: int) -> None:
+        # Load data
+        self._cam_front_path = self.lookup_cam_front(timestamp)
+        self._lidar_top_path = self.lookup_lidar_top(timestamp)
 
     @override
-    def seek(self, timestamp: int) -> bool:
-        '''Browse to the specific timestamp'''
-        if self._current_timestamp == timestamp:
-            return False
-        self._current_timestamp = timestamp
-
-        # Load data
-        info(f'Seeking to the timestamp: {timestamp}')
-
-        # CAM_FRONT
-        filename = _seek_by(
-            timestamp=timestamp,
-            timestamps=self._cam_front_timestamps,
-            values=self._cam_front_filenames,
-        )
-        self._cam_front_path = \
-            f'file://{self._category_dir}/CAM_FRONT/{filename}'
-
-        # LIDAR_FRONT
-        filename = _seek_by(
-            timestamp=timestamp,
-            timestamps=self._lidar_top_timestamps,
-            values=self._lidar_top_filenames,
-        )
-        self._lidar_top_path = \
-            f'file://{self._category_dir}/LIDAR_TOP/{filename}'
-
-        # Complete loading data
-        return True
+    def __repr__(self) -> str:
+        return self._path
 
     @override
     def __del__(self) -> None:
-        info(f'Finalizing {"FileSystemDataLoader"!r}')
+        super().__del__()
 
 
 def _list_scenes(

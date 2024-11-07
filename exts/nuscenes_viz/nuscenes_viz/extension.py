@@ -45,6 +45,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
 
         # Download nuScenes dataset
         self._data_loader = FileSystemDataLoader(category='samples')
+        self._data_loader.checkout_dataset()
 
         # Define window
         self._window = ui.Window(
