@@ -1,4 +1,4 @@
-# Connected Data Lake - NVIDIA Omniverse Plugins
+# Connected Data Lake - NVIDIA Omniverse Extensions
 
 ## Getting Started
 
