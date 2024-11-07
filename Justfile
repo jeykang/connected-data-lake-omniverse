@@ -85,5 +85,5 @@ run TYPE="editor.base":
     ; fi && \
     NVIDIA_OMNIVERSE_KIT_CMD="${NVIDIA_OMNIVERSE_KIT_HOME}/omni.app.{{ TYPE }}${NVIDIA_OMNIVERSE_KIT_EXT}" \
     && exec "${NVIDIA_OMNIVERSE_KIT_CMD}" \
-        --enable 'nuscenes.viz' \
+        --enable 'nuscenes_viz' \
         --ext-folder './exts'
