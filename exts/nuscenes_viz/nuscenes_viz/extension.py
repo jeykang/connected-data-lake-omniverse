@@ -1,4 +1,4 @@
-'''An Omniverse Kit Extension module for NuScenes Visualization
+'''An Omniverse Kit Extension module for nuScenes Visualization
 '''
 
 from logging import info, warning
@@ -26,7 +26,7 @@ __all__ = [
 
 
 class RGBLiDARVisualizerExtension(omni.ext.IExt):
-    '''An Omniverse Kit Extension for NuScenes Visualization'''
+    '''An Omniverse Kit Extension for nuScenes Visualization'''
 
     # UI
     _ui_cameras: dict[str, ui.Image] = {}
@@ -59,7 +59,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
 
         # Define control panel
         self._window_control_panel = ui.Window(
-            title='NuScenes RGB & LiDAR Visualizer',
+            title='nuScenes RGB & LiDAR Visualizer',
             width=400,
             height=600,
         )
@@ -122,7 +122,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
     ):
         # Define window
         window = ui.Window(
-            title=f'NuScenes RGB Visualizer - {name}',
+            title=f'nuScenes RGB Visualizer - {name}',
             width=400,
             height=400,
         )

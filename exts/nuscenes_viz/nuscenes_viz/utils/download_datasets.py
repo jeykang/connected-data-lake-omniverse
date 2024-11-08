@@ -1,9 +1,9 @@
 #!./app/python/python
-'''NuScenes Dataset Downloader
+'''nuScenes Dataset Downloader
 '''
 
 from concurrent.futures import ProcessPoolExecutor
-from logging import debug, info
+from logging import debug, warning
 from multiprocessing import cpu_count
 import os
 import tarfile
@@ -95,7 +95,7 @@ def _download_and_extract(
     if url in meta_downloaded:
         return  # Skip re-downloading
 
-    info(f'Downloading dataset: {url!r}')
+    warning(f'Downloading dataset: {url!r}')
     # pylint: disable=missing-timeout
     with requests.get(url, stream=True) as response:
         response.raise_for_status()
@@ -119,17 +119,22 @@ def _download_and_extract(
 
 def load_or_download_and_extract(
     path: str = './data/nuscenes',
+    download_samples: bool = True,
+    download_sweeps: bool = True,
 ) -> str:
-    '''Load a NuScenes dataset or download and extract it.
+    '''Load a nuScenes dataset or download and extract it.
     '''
 
     path = os.path.realpath(path)
-    info(f'Downloading NuScenes dataset to {path}')
+    warning(f'Downloading nuScenes dataset to {path}')
     os.makedirs(path, exist_ok=True)
 
     # Download the file
-    files = ['trainval_meta.tgz', 'mini.tgz'] \
-        + [f'trainval{i+1:02d}_blobs.tgz' for i in range(10)]
+    files = ['trainval_meta.tgz']
+    if download_samples:
+        files += ['mini.tgz']
+    if download_sweeps:
+        files += [f'trainval{i+1:02d}_blobs.tgz' for i in range(10)]
     for file in files:
         _download_and_extract(
             base_url='https://d36yt3mvayqw5m.cloudfront.net/public',
@@ -137,7 +142,7 @@ def load_or_download_and_extract(
             version='1.0',
             dest=path,
         )
-    debug('Loaded NuScenes dataset')
+    debug('Loaded nuScenes dataset')
     return path
 
 
@@ -146,6 +151,30 @@ if __name__ == '__main__':
     import logging
     logging.basicConfig(level=logging.INFO)
 
+    # Parse command-line arguments
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--path',
+        help='Destination directory to save the dataset',
+        default='../../../../../data/nuscenes',
+    )
+    parser.add_argument(
+        '--samples',
+        help='Download samples',
+        action=argparse.BooleanOptionalAction,
+    )
+    parser.add_argument(
+        '--sweeps',
+        help='Download sweeps',
+        action=argparse.BooleanOptionalAction,
+    )
+    args = parser.parse_args()
+
     # Specify the directory you want to start the conversion from
-    root_directory = os.path.join(__file__, '../../../../../data/nuscenes')
-    load_or_download_and_extract(root_directory)
+    root_directory = os.path.join(__file__, args.path)
+    load_or_download_and_extract(
+        path=root_directory,
+        download_samples=args.samples,
+        download_sweeps=args.sweeps,
+    )

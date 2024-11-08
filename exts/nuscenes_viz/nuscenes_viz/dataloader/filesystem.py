@@ -18,7 +18,7 @@ class FileSystemDataLoader(BaseDataLoader):
         self,
         category: Category = 'samples',
         path: str = './data/nuscenes',
-        download_if_not_exists: bool = False,
+        download_if_not_exists: bool = True,
     ) -> None:
         super().__init__(
             category=category,
@@ -96,7 +96,11 @@ class FileSystemDataLoader(BaseDataLoader):
     def _checkout_dataset(self) -> None:
         # Download the dataset if not exists
         if self._download_if_not_exists:
-            self._path = load_or_download_and_extract(self._path)
+            self._path = load_or_download_and_extract(
+                path=self._path,
+                download_samples=self.category == 'samples',
+                download_sweeps=self.category == 'sweeps',
+            )
         if not os.path.exists(self._path):
             raise FileNotFoundError(
                 f'No such nuScenes dataset on: {self._path!r}'

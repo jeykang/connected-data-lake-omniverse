@@ -1,4 +1,4 @@
-'''An Omniverse Kit Extension package for NuScenes Visualization'''
+'''An Omniverse Kit Extension package for nuScenes Visualization'''
 
 from .extension import RGBLiDARVisualizerExtension
 

@@ -42,6 +42,9 @@ rustup default nightly
 
 ### Download nuScenes Dataset by manual
 
+The dataset will be automatically downloaded when started.
+If you preper to download **ahead**, please follow this guide.
+
 On your bash shell, type below:
 
 ```bash
@@ -54,7 +57,10 @@ On your bash shell, type below:
   usd-core
 
 # Download the dataset
-./exts/nuscenes.viz/nuscenes/viz/utils/download_datasets.py
+./exts/nuscenes_viz/nuscenes_viz/utils/download_datasets.py --samples
+
+# If you preper to download all, then type below:
+./exts/nuscenes_viz/nuscenes_viz/utils/download_datasets.py --samples --sweeps
 ```
 
 ### One-shot Command Line
