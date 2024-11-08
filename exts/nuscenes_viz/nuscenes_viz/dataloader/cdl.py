@@ -24,7 +24,7 @@ class CdlDataLoader(BaseDataLoader):
         super().__init__(
             category=category,
         )
-        self._cache_dir = os.path.realpath(cache_dir)
+        self._cache_dir = os.path.realpath(os.path.join(cache_dir, category))
         self._cdl = Cdl()
         self._fs = self._cdl.open(url)
         self._url = url
