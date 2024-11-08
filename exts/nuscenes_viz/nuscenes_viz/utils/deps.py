@@ -17,6 +17,9 @@ def install_dependencies() -> None:
         package='open3d',
     )
     omni.kit.pipapi.install(
+        package='pandas',
+    )
+    omni.kit.pipapi.install(
         package='requests',
     )
     omni.kit.pipapi.install(
