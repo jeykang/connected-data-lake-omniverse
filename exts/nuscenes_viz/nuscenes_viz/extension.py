@@ -197,7 +197,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
             )
             self._ui_dataset_status.text = f'Ok({self._data_loader!r})'
         except Exception as e:  # pylint: disable=broad-exception-caught
-            self._ui_dataset_status.text = 'Error'
+            self._ui_dataset_status.text = repr(e)
             raise e
         finally:
             if self._data_loader is not None:

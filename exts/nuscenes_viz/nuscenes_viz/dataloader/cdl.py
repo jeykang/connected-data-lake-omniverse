@@ -165,7 +165,7 @@ class CdlDataLoader(BaseDataLoader):
         ext: str,
     ) -> list[str]:
         assert ext.startswith('.')
-        path = os.path.join(self._category_dir, kind)
+        path = f'{self._category_dir}/{kind}'
         column_name = 'scene'
         sql = f'''
             SELECT DISTINCT
@@ -192,7 +192,7 @@ class CdlDataLoader(BaseDataLoader):
         ext: str,
     ) -> list[str]:
         assert ext.startswith('.')
-        path = os.path.join(self._category_dir, kind)
+        path = f'{self._category_dir}/{kind}'
         column_name = 'name'
         sql = f'''
             SELECT DISTINCT

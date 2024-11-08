@@ -32,6 +32,8 @@ class BaseDataLoader(metaclass=ABCMeta):
     @final
     def scene(self) -> str:
         '''Returns the current scene'''
+        if not self.scenes:
+            raise ValueError('Empty dataset')
         return self.scenes[self._current_scene_index]
 
     @property
