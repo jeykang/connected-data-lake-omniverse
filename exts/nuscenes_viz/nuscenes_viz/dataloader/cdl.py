@@ -2,8 +2,9 @@
 
 import os
 
-from cdlake import Cdl, CdlFS  # pylint: disable=import-error
-from typing_extensions import override
+from cdlake import Cdl  # pylint: disable=import-error
+import pandas as pd
+from typing_extensions import final, override
 
 from .base import BaseDataLoader, Category
 from ..utils.timestamp_seek import seek_by
@@ -104,9 +105,7 @@ class CdlDataLoader(BaseDataLoader):
     def _checkout_category(self, category: Category) -> None:
         # Load scenes
         self._category_dir = f'/{category}'
-        self._lidar_top_scenes = _list_scenes(
-            fs=self._fs,
-            base_dir=self._category_dir,
+        self._lidar_top_scenes = self._list_scenes(
             kind='LIDAR_TOP',
             ext='.usd',
         )
@@ -116,18 +115,14 @@ class CdlDataLoader(BaseDataLoader):
         # Load timestamps
         self._cam_front_base, \
             self._cam_front_timestamps, \
-            self._cam_front_filenames = _list_timestamps(
-                fs=self._fs,
-                base_dir=self._category_dir,
+            self._cam_front_filenames = self._list_timestamps(
                 kind='CAM_FRONT',
                 scene=scene,
                 ext='.jpg',
             )
         self._lidar_top_base, \
             self._lidar_top_timestamps, \
-            self._lidar_top_filenames = _list_timestamps(
-                fs=self._fs,
-                base_dir=self._category_dir,
+            self._lidar_top_filenames = self._list_timestamps(
                 kind='LIDAR_TOP',
                 scene=scene,
                 ext='.usd',
@@ -139,6 +134,89 @@ class CdlDataLoader(BaseDataLoader):
         self._cam_front_path = self.lookup_cam_front(timestamp)
         self._lidar_top_path = self.lookup_lidar_top(timestamp)
 
+    @final
+    def _list(
+        self,
+        key: str,
+        column_name: str,
+        sql: str,
+    ) -> list[str]:
+        # Try to hit cache
+        cache_path = os.path.join(
+            self._cache_dir, column_name, f'{key}.parquet',
+        )
+        if os.path.exists(cache_path):
+            df = pd.read_parquet(cache_path)
+        else:
+            # Fetch the values
+            df = self._fs.sql(sql).to_pandas()
+
+            # Store to the cache
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            df.to_parquet(cache_path)
+
+        # Return the selected column
+        return df[column_name].to_list()
+
+    @final
+    def _list_scenes(
+        self,
+        kind: str,
+        ext: str,
+    ) -> list[str]:
+        assert ext.startswith('.')
+        path = os.path.join(self._category_dir, kind)
+        column_name = 'scene'
+        sql = f'''
+            SELECT DISTINCT
+                SUBSTR(name, 1, INSTR(name, '__{kind}__') - 1) AS {column_name}
+            FROM
+                rootfs
+            WHERE
+                name LIKE 'n%{ext}'
+                    AND parent == '{path}'
+            ORDER BY
+                {column_name} ASC
+        '''
+        return self._list(
+            key=kind,
+            column_name=column_name,
+            sql=sql,
+        )
+
+    @final
+    def _list_timestamps(
+        self,
+        kind: str,
+        scene: str,
+        ext: str,
+    ) -> list[str]:
+        assert ext.startswith('.')
+        path = os.path.join(self._category_dir, kind)
+        column_name = 'name'
+        sql = f'''
+            SELECT DISTINCT
+                {column_name}
+            FROM
+                rootfs
+            WHERE
+                name LIKE '{scene}__{kind}__%{ext}'
+                    AND parent == '{path}'
+            ORDER BY
+                {column_name} ASC
+        '''
+        filenames = self._list(
+            key=f'{scene}__{kind}__',
+            column_name=column_name,
+            sql=sql,
+        )
+        timestamps = [
+            int(filename.split(f'__{kind}__')[1][:-len(ext)])
+            for filename in filenames
+        ]
+        return path, timestamps, filenames
+
+    @final
     def _load(self, parent: str, filename: str) -> str:
         # Create a directory
         path = os.path.join(self._cache_dir, parent[1:], filename)
@@ -172,51 +250,3 @@ class CdlDataLoader(BaseDataLoader):
     @override
     def __del__(self) -> None:
         super().__del__()
-
-
-def _list_scenes(
-    fs: CdlFS,
-    base_dir: str,
-    kind: str,
-    ext: str,
-) -> list[str]:
-    df = fs.sql(f'''
-        SELECT DISTINCT
-            SUBSTR(name, 1, INSTR(name, '__{kind}__') - 1) AS scene
-        FROM
-            rootfs
-        WHERE
-            name LIKE 'n%{ext}'
-                AND parent == '{base_dir}/{kind}'
-        ORDER BY
-            scene ASC
-    ''')
-    return df['scene'].to_pylist()
-
-
-def _list_timestamps(
-    fs: CdlFS,
-    base_dir: str,
-    kind: str,
-    scene: str,
-    ext: str,
-) -> tuple[str, list[int], list[str]]:
-    assert ext.startswith('.')
-    path = os.path.join(base_dir, kind)
-    df = fs.sql(f'''
-        SELECT DISTINCT
-            name
-        FROM
-            rootfs
-        WHERE
-            name LIKE '{scene}%{ext}'
-                AND parent == '{path}'
-        ORDER BY
-            name ASC
-    ''')
-    filenames = df['name'].to_pylist()
-    timestamps = [
-        int(filename.split(f'__{kind}__')[1][:-len(ext)])
-        for filename in filenames
-    ]
-    return path, timestamps, filenames

@@ -2,7 +2,7 @@
 
 import os.path
 
-from typing_extensions import override
+from typing_extensions import final, override
 
 from .base import BaseDataLoader, Category
 from ..utils.download_datasets import load_or_download_and_extract
@@ -106,8 +106,7 @@ class FileSystemDataLoader(BaseDataLoader):
     def _checkout_category(self, category: Category) -> None:
         # Load scenes
         self._category_dir = os.path.join(self._path, category)
-        self._lidar_top_scenes = _list_scenes(
-            base_dir=self._category_dir,
+        self._lidar_top_scenes = self._list_scenes(
             kind='LIDAR_TOP',
             ext='.usd',
         )
@@ -117,16 +116,14 @@ class FileSystemDataLoader(BaseDataLoader):
         # Load timestamps
         self._cam_front_base, \
             self._cam_front_timestamps, \
-            self._cam_front_filenames = _list_timestamps(
-                base_dir=self._category_dir,
+            self._cam_front_filenames = self._list_timestamps(
                 kind='CAM_FRONT',
                 scene=scene,
                 ext='.jpg',
             )
         self._lidar_top_base, \
             self._lidar_top_timestamps, \
-            self._lidar_top_filenames = _list_timestamps(
-                base_dir=self._category_dir,
+            self._lidar_top_filenames = self._list_timestamps(
                 kind='LIDAR_TOP',
                 scene=scene,
                 ext='.usd',
@@ -138,6 +135,40 @@ class FileSystemDataLoader(BaseDataLoader):
         self._cam_front_path = self.lookup_cam_front(timestamp)
         self._lidar_top_path = self.lookup_lidar_top(timestamp)
 
+    @final
+    def _list_scenes(
+        self,
+        kind: str,
+        ext: str,
+    ) -> list[str]:
+        assert ext.startswith('.')
+        path = os.path.join(self._category_dir, kind)
+        return sorted(set(
+            filename.split('__')[0]
+            for filename in os.listdir(path)
+            if filename.startswith('n') and filename.endswith(ext)
+        ))
+
+    @final
+    def _list_timestamps(
+        self,
+        kind: str,
+        scene: str,
+        ext: str,
+    ) -> tuple[str, list[int], list[str]]:
+        assert ext.startswith('.')
+        path = os.path.join(self._category_dir, kind)
+        filenames = sorted(
+            filename
+            for filename in os.listdir(path)
+            if filename.startswith(scene) and filename.endswith(ext)
+        )
+        timestamps = [
+            int(filename.split(f'__{kind}__')[1][:-len(ext)])
+            for filename in filenames
+        ]
+        return path, timestamps, filenames
+
     @override
     def __repr__(self) -> str:
         return self._path
@@ -145,36 +176,3 @@ class FileSystemDataLoader(BaseDataLoader):
     @override
     def __del__(self) -> None:
         super().__del__()
-
-
-def _list_scenes(
-    base_dir: str,
-    kind: str,
-    ext: str,
-) -> list[str]:
-    path = os.path.join(base_dir, kind)
-    return sorted(set(
-        filename.split('__')[0]
-        for filename in os.listdir(path)
-        if filename.startswith('n') and filename.endswith(ext)
-    ))
-
-
-def _list_timestamps(
-    base_dir: str,
-    kind: str,
-    scene: str,
-    ext: str,
-) -> tuple[str, list[int], list[str]]:
-    assert ext.startswith('.')
-    path = os.path.join(base_dir, kind)
-    filenames = sorted(
-        filename
-        for filename in os.listdir(path)
-        if filename.startswith(scene) and filename.endswith(ext)
-    )
-    timestamps = [
-        int(filename.split(f'__{kind}__')[1][:-len(ext)])
-        for filename in filenames
-    ]
-    return path, timestamps, filenames
