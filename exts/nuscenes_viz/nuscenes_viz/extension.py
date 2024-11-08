@@ -29,12 +29,18 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
     '''An Omniverse Kit Extension for NuScenes Visualization'''
 
     # UI
-    _ui_cam_front: ui.Image
+    _ui_cameras: dict[str, ui.Image] = {}
+    _ui_cameras_keys = [
+        'cam_front',
+    ]
     _ui_dataset: ui.StringField
     _ui_scene_selector: ui.ComboBox
     _ui_timestamp_slider: ui.IntSlider
     _ui_dataset_status: ui.Label
-    _window: ui.Window | None
+
+    # Windows
+    _window_cameras: dict[str, ui.Window] = {}
+    _window_control_panel: ui.Window | None
 
     # States
     _data_category: Category = 'samples'
@@ -47,13 +53,17 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         '''Initialize the extension'''
         info('[RGBLiDARVisualizer] Extension started')
 
-        # Define window
-        self._window = ui.Window(
+        # Define camera windows
+        for name in self._ui_cameras_keys:
+            self._create_camera_window(name)
+
+        # Define control panel
+        self._window_control_panel = ui.Window(
             title='NuScenes RGB & LiDAR Visualizer',
             width=400,
             height=600,
         )
-        with self._window.frame:
+        with self._window_control_panel.frame:
             with ui.VStack():
                 ui.Label('Select Dataset:')
                 self._ui_dataset = ui.StringField(
@@ -73,14 +83,10 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
                     model=ui.SimpleIntModel(),
                 )
 
-                # Display Image
-                ui.Label('RGB Image:')
-                self._ui_cam_front = ui.Image('', width=380, height=280)
-
                 # Instructions
                 ui.Label(
                     'LiDAR Pointcloud is displayed in the main viewport.',
-                    height=20,
+                    height=40,
                 )
 
                 # Register callbacks
@@ -105,8 +111,27 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
     def on_shutdown(self) -> None:
         '''Finalize the extension'''
         info('[RGBLiDARVisualizer] Extension shutdown')
-        self._window = None
+        self._ui_cameras = {}
+        self._window_cameras = {}
+        self._window_control_panel = None
         self._data_loader = None
+
+    def _create_camera_window(
+        self,
+        name: str,
+    ):
+        # Define window
+        window = ui.Window(
+            title=f'NuScenes RGB Visualizer - {name}',
+            width=400,
+            height=400,
+        )
+        self._window_cameras[name] = window
+
+        # Display image
+        with window.frame:
+            image = ui.Image('')
+        self._ui_cameras[name] = image
 
     def _reload_dataset(self) -> None:
         return self._on_dataset_changed(self._ui_dataset.model)
@@ -146,10 +171,14 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         # Display the image and pointcloud at the selected timestamp
         if self._data_loader is not None:
             if lookup_timestamp is None:
-                self._ui_cam_front.source_url = self._data_loader.cam_front
+                for name, ui_image in self._ui_cameras.items():
+                    ui_image.source_url = getattr(self._data_loader, name)
                 self._display_pointcloud(self._data_loader.lidar_top)
             else:
-                self._ui_cam_front.source_url = self._data_loader.lookup_cam_front(  # noqa: E501
+                # Lookup only 1 image
+                name = self._ui_cameras_keys[0]
+                ui_image = self._ui_cameras[name]
+                ui_image.source_url = getattr(self._data_loader, f'lookup_{name}')(  # noqa: E501
                     timestamp=lookup_timestamp,
                 )
 
