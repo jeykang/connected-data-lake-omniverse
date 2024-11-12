@@ -8,6 +8,8 @@ def install_dependencies() -> None:
 
     omni.kit.pipapi.install(
         package='cdlake',
+        version='0.1.3',
+        ignore_import_check=True,
     )
     omni.kit.pipapi.install(
         package='nuscenes-devkit',

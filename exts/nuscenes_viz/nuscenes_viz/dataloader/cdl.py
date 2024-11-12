@@ -2,7 +2,6 @@
 
 import os
 
-from cdlake import Cdl  # pylint: disable=import-error
 import pandas as pd
 from typing_extensions import final, override
 
@@ -17,17 +16,23 @@ class CdlDataLoader(BaseDataLoader):
 
     def __init__(
         self,
-        cache_dir: str = './cache/omniverse',
+        cache_dir: str = './cache',
         category: Category = 'samples',
         url: str = './data/nuscenes',
     ) -> None:
         super().__init__(
             category=category,
         )
-        self._cache_dir = os.path.realpath(os.path.join(cache_dir, category))
-        self._cdl = Cdl()
-        self._fs = self._cdl.open(url)
         self._url = url
+
+        # Load
+        self._cache_dir_parquet = os.path.realpath(os.path.join(
+            cache_dir,
+            self.uid,
+            'omniverse',
+            category,
+        ))
+        self._fs = self.cdl.open(url)
 
         # Prefetch scenes
         self._category_dir: str
@@ -143,7 +148,7 @@ class CdlDataLoader(BaseDataLoader):
     ) -> list[str]:
         # Try to hit cache
         cache_path = os.path.join(
-            self._cache_dir, column_name, f'{key}.parquet',
+            self._cache_dir_parquet, column_name, f'{key}.parquet',
         )
         if os.path.exists(cache_path):
             df = pd.read_parquet(cache_path)
@@ -219,7 +224,7 @@ class CdlDataLoader(BaseDataLoader):
     @final
     def _load(self, parent: str, filename: str) -> str:
         # Create a directory
-        path = os.path.join(self._cache_dir, parent[1:], filename)
+        path = os.path.join(self._cache_dir_parquet, parent[1:], filename)
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         if not os.path.exists(path):

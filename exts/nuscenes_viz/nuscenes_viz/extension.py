@@ -18,6 +18,8 @@ try:
 except ImportError as e:
     raise e
 
+from cdlake import Cdl  # pylint: disable=import-error
+
 from .dataloader import BaseDataLoader, Category, load_dataset
 
 __all__ = [
@@ -34,6 +36,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         'cam_front',
     ]
     _ui_dataset: ui.StringField
+    _ui_dataset_catalog: ui.ComboBox
     _ui_scene_selector: ui.ComboBox
     _ui_timestamp_slider: ui.IntSlider
     _ui_dataset_status: ui.Label
@@ -43,15 +46,23 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
     _window_control_panel: ui.Window | None
 
     # States
+    _cache_dir: str = './cache'
+    _cdl: Cdl
     _data_category: Category = 'samples'
     _data_loader: BaseDataLoader | None = None
     _data_loader_url: str = ''
+    _dataset_catalog_index_local: int = 0
+    _dataset_catalog_index_custom: int = 1
+    _datasets: list[str] = []
 
     @final
     @override
     def on_startup(self, _ext_id: str) -> None:
         '''Initialize the extension'''
         info('[RGBLiDARVisualizer] Extension started')
+        
+        # Define Connected Data Lake
+        self._cdl = Cdl()
 
         # Define camera windows
         for name in self._ui_cameras_keys:
@@ -66,9 +77,11 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         with self._window_control_panel.frame:
             with ui.VStack():
                 ui.Label('Select Dataset:')
+                self._ui_dataset_catalog = ui.ComboBox()
                 self._ui_dataset = ui.StringField(
                     model=ui.SimpleStringModel('./data/nuscenes'),
                     height=25,
+                    visible=False,
                 )
                 self._ui_dataset_status = ui.Label(
                     'Loading...',
@@ -90,6 +103,9 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
                 )
 
                 # Register callbacks
+                self._ui_dataset_catalog.model.add_item_changed_fn(
+                    self._on_dataset_catalog_changed,
+                )
                 self._ui_dataset.model.add_end_edit_fn(
                     self._on_dataset_changed,
                 )
@@ -104,7 +120,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
                 )
 
                 # Fetch dataset
-                self._reload_dataset()
+                self._reload_dataset_catalog()
 
     @ final
     @ override
@@ -132,6 +148,34 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         with window.frame:
             image = ui.Image('')
         self._ui_cameras[name] = image
+
+    def _reload_dataset_catalog(self) -> None:
+        # Reload catalog
+        self._datasets = ['dataset-b', 'dataset-a']
+
+        # Reload catalog UI
+        for dataset in self._ui_dataset_catalog.model.get_item_children():
+            self._ui_dataset_catalog.model.remove_item(dataset)
+        if self._data_loader is not None:
+            for dataset in self._datasets:
+                self._ui_dataset_catalog.model.append_child_item(
+                    None,
+                    ui.SimpleStringModel(dataset),
+                )
+            
+            self._dataset_catalog_index_local = len(self._datasets)
+            self._ui_dataset_catalog.model.append_child_item(
+                None,
+                ui.SimpleStringModel('Local Filesystem'),
+            )
+            self._dataset_catalog_index_custom = len(self._datasets) + 1
+            self._ui_dataset_catalog.model.append_child_item(
+                None,
+                ui.SimpleStringModel('Custom'),
+            )
+
+        # Reload dataset
+        return self._reload_dataset()
 
     def _reload_dataset(self) -> None:
         return self._on_dataset_changed(self._ui_dataset.model)
@@ -182,6 +226,24 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
                     timestamp=lookup_timestamp,
                 )
 
+    def _on_dataset_catalog_changed(self, model, *_args) -> None:
+        # # Propagate value to the DataLoader
+        index = model.get_item_value_model().as_int
+        if self._data_loader is None:
+            return  # nothing changed
+        
+        if index < len(self._datasets):
+            url = f's3://{self._datasets[index]}'
+        elif index == self._dataset_catalog_index_local:
+            url = './data/nuscenes'
+        else:
+            self._ui_dataset.visible = True
+            return
+
+        self._ui_dataset.visible = False
+        self._ui_dataset.model.set_value(url)
+        return self._reload_dataset()
+
     def _on_dataset_changed(self, model) -> None:
         url = model.as_string
         if self._data_loader_url == url:
@@ -189,11 +251,12 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
         self._data_loader_url = url
 
         # Reload data loader
+        has_old_data_loader = self._data_loader is not None
         try:
             self._ui_dataset_status.text = 'Loading...'
             self._data_loader = load_dataset(
-                url=self._data_loader_url,
                 category=self._data_category,
+                url=self._data_loader_url,
             )
             self._ui_dataset_status.text = f'Ok({self._data_loader!r})'
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -204,6 +267,8 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
                 self._data_loader.checkout_dataset()
 
             # Reset all values
+            if not has_old_data_loader:
+                self._reload_dataset_catalog()
             self._reload_scenes()
 
     def _on_scene_changed(self, model, *_args) -> None:

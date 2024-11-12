@@ -1,8 +1,11 @@
 '''Generic nuScenes Dataset Loader Module'''
 
 from abc import ABCMeta, abstractmethod
+from hashlib import sha256
 from logging import info, warning
+import os.path
 
+from cdlake import Cdl  # pylint: disable=import-error
 from typing_extensions import Literal, final
 
 __all__ = ['BaseDataLoader', 'Category']
@@ -15,18 +18,32 @@ class BaseDataLoader(metaclass=ABCMeta):
 
     def __init__(
         self,
+        cache_dir: str = './cache',
         category: Category = 'samples',
     ) -> None:
+        self._cache_dir = cache_dir
+        self._cdl: Cdl | None = None
         self._current_category = category
         self._current_scene_index = -1
         self._current_timestamp = -1
         self._is_loaded = False
+        self._uid: str | None = None
 
     @property
     @final
     def category(self) -> Category:
         '''Returns the current category'''
         return self._current_category
+    
+    @property
+    @final
+    def cdl(self) -> Category:
+        '''Returns the current connected data lake instance'''
+        if self._cdl is None:
+            self._cdl = Cdl(
+                cache_dir=os.path.join(self._cache_dir, self.uid),
+            )
+        return self._cdl
 
     @property
     @final
@@ -53,6 +70,14 @@ class BaseDataLoader(metaclass=ABCMeta):
     def timestamps(self) -> range:
         '''Returns the range of available timestamps as milliseconds'''
         raise NotImplementedError()
+
+    @property
+    @final
+    def uid(self) -> str:
+        '''Returns the unique hashed ID of this data loader'''
+        if not hasattr(self, '_uid') or self._uid is None:
+            self._uid = sha256(repr(self).encode()).hexdigest()
+        return self._uid
 
     @property
     @abstractmethod

@@ -16,11 +16,13 @@ class FileSystemDataLoader(BaseDataLoader):
 
     def __init__(
         self,
+        cache_dir: str = './cache',
         category: Category = 'samples',
         path: str = './data/nuscenes',
         download_if_not_exists: bool = True,
     ) -> None:
         super().__init__(
+            cache_dir=cache_dir,
             category=category,
         )
         self._download_if_not_exists = download_if_not_exists

@@ -14,22 +14,26 @@ __all__ = [
 
 
 def load_dataset(
-    url: str = './data/nuscenes',
+    cache_dir: str = './cache',
     category: Category = 'samples',
+    url: str = './data/nuscenes',
 ) -> BaseDataLoader:
     '''Loads a proper DataLoader with given URL'''
     if url.startswith('s3://') or url.startswith('s3a://'):
         return CdlDataLoader(
+            cache_dir=cache_dir,
             category=category,
             url=url,
         )
     elif url.startswith('file://'):
         return FileSystemDataLoader(
+            cache_dir=cache_dir,
             category=category,
             path=url[len('file://'):],
         )
     else:
         return FileSystemDataLoader(
+            cache_dir=cache_dir,
             category=category,
             path=url,
         )
