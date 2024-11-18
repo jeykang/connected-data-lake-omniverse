@@ -6,6 +6,9 @@ from logging import info, warning
 from typing_extensions import final, override
 from pxr import Sdf, Gf, Usd
 #from usdrt import Sdf, Gf, Usd
+import numpy as np 
+from concurrent.futures import ThreadPoolExecutor
+
 
 import omni.ext  # pylint: disable=import-error
 import omni.kit.commands  # pylint: disable=import-error
@@ -53,6 +56,7 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
     def on_startup(self, _ext_id: str) -> None:
         '''Initialize the extension'''
         info('[RGBLiDARVisualizer] Extension started')
+        print(omni.kit.commands.get_commands_list())
 
         # Define camera windows
         for name in self._ui_cameras_keys:
@@ -186,6 +190,11 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
             self._ui_timestamp_slider.model.set_value(
                 self._data_loader.timestamp,
             )
+            # Sample global timestamps for caching
+            self._global_sampled_ts = self.sample_timestamps(timestamps, num_samples=100)
+
+            # Run caching asynchronously
+            asyncio.run(self.cache_timestamps_async(self._global_sampled_ts))
 
         # Reload the screen
         return self._reload_screen()
@@ -281,14 +290,35 @@ class RGBLiDARVisualizerExtension(omni.ext.IExt):
             assetPath=url,
             primPath='/Root/PointCloud',
         )
+        
         if not pointcloud_prim.GetAttribute('xformOp:rotateXYZ'):
-            pointcloud_prim.CreateAttribute('xformOp:rotateXYZ', Sdf.ValueTypeNames.Vector3f)
-        #pointcloud_prim.GetAttribute('xformOp:rotateXYZ').Set(Gf.Vec3f(-90, 0, 0))
-        omni.kit.commands.execute('ChangeProperty',
+            omni.kit.commands.execute('CreateDefaultXformOnPrimCommand',
+                prim_path=Sdf.Path('/World/LiDARPointCloud'),
+                stage=stage)
+        omni.kit.commands.execute('ChangePropertyCommand',
             prop_path=Sdf.Path('/World/LiDARPointCloud.xformOp:rotateXYZ'),
             value=Gf.Vec3f(-90, 0, 0),
             prev=Gf.Vec3f(0, 0, 0))
-        
-        
+         
+
         # Focus the camera on the point cloud
         # self.focus_on_prim(pointcloud_prim_path)
+
+    async def cache_timestamp(self, timestamp, executor):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(executor, self._data_loader.lookup_lidar_top, timestamp)
+
+    async def cache_timestamps_async(self, timestamps):
+        executor = ThreadPoolExecutor()
+        tasks = [self.cache_timestamp(ts, executor) for ts in timestamps]
+        await asyncio.gather(*tasks)
+        executor.shutdown(wait=True)
+
+    def sample_timestamps(self, lst, num_samples=100):
+        L = len(lst)
+        if L <= num_samples:
+            return lst
+        else:
+            indices = np.linspace(0, L - 1, num=num_samples, dtype=int)
+            sampled_list = [lst[idx] for idx in indices]
+            return sampled_list
